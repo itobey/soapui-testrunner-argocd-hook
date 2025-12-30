@@ -1,2 +1,2 @@
 # SoapUI Testrunner ArgoCD Hook
-This repository contains the resources mentioned in my blog post. For further information visit 
+This repository contains the resources mentioned in my blog post. For further information visit https://itobey.dev/running-soapui-tests-automatically-in-a-gitops-argo-cd-deployment-pipeline/
