@@ -1,0 +1,95 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.soapui.name }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: {{ .Values.soapui.ttlSecondsAfterFinished | default 1200 }}
+  backoffLimit: {{ .Values.soapui.backoffLimit | default 0 }}
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: soapui-tests
+          image: my-soapui-testrunner:1.0.0
+          env:
+            - name: HOME
+              value: /tmp/
+            - name: COMMAND_LINE
+              value: >-
+                -f %reports% -r -A -M
+                {{- if .Values.soapui.forcedEndpoint }} -e {{ .Values.soapui.forcedEndpoint }}{{ end }}
+                {{- range .Values.soapui.customProperties }} -G {{ . }}{{ end }}
+                {{- if and .Values.soapui.credentials .Values.soapui.credentials.soapuiUser }} -G SOAPUI_USER=${SOAPUI_USER}{{ end }}
+                {{- if and .Values.soapui.credentials .Values.soapui.credentials.soapuiPassword }} -G SOAPUI_PASSWORD=${SOAPUI_PASSWORD}{{ end }}
+                {{- if .Values.soapui.testSuite }} -s {{ .Values.soapui.testSuite | quote }}{{ end }}
+                {{- if .Values.soapui.testCase }} -c {{ .Values.soapui.testCase | quote }}{{ end }}
+                $(ls %project%/*.xml)
+            - name: MAVEN_GROUP_ID
+              value: {{ .Values.soapui.maven.groupId | quote }}
+            - name: MAVEN_ARTIFACT_ID
+              value: {{ .Values.soapui.maven.artifactId | quote }}
+            - name: MAVEN_VERSION
+              value: {{ .Values.soapui.maven.version | default .Values.container.image.tag | quote }}
+            - name: ARTIFACTORY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: soapui-artifactory-credentials
+                  key: artifactory-user
+            - name: ARTIFACTORY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: soapui-artifactory-credentials
+                  key: artifactory-token
+            # Email configuration
+            - name: EMAIL_ENABLED
+              value: {{ .Values.soapui.email.enabled | default false | quote }}
+            {{- if .Values.soapui.email.enabled }}
+            - name: EMAIL_RECIPIENTS
+              value: {{ .Values.soapui.email.recipients | join "," | quote }}
+            - name: EMAIL_SUBJECT_PREFIX
+              value: "SoapUI Test Summary"
+            {{- end }}
+            # SoapUI credentials if needed
+            {{- if and .Values.soapui.credentials .Values.soapui.credentials.soapuiUser }}
+            - name: SOAPUI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.soapui.secretName | default "soapui-credentials" }}
+                  key: soapui-user
+            {{- end }}
+            {{- if and .Values.soapui.credentials .Values.soapui.credentials.soapuiPassword }}
+            - name: SOAPUI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.soapui.secretName | default "soapui-credentials" }}
+                  key: soapui-password
+            {{- end }}
+          imagePullPolicy: IfNotPresent
+          resources:
+            {{- if .Values.soapui.resources }}
+            {{- toYaml .Values.soapui.resources | nindent 12 }}
+            {{- else }}
+            limits:
+              memory: "256Mi"
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            {{- end }}
+
+      {{- if .Values.soapui.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.soapui.nodeSelector | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.soapui.tolerations }}
+      tolerations:
+        {{- toYaml .Values.soapui.tolerations | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.soapui.affinity }}
+      affinity:
+        {{- toYaml .Values.soapui.affinity | nindent 8 }}
+      {{- end }}

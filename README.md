@@ -1,2 +1,2 @@
-# soapui-testrunner-argocd-hook
-contains resources for creating a postsync hook in argocd to run soapui tests
+# SoapUI Testrunner ArgoCD Hook
+This repository contains the resources mentioned in my blog post. For further information visit 
